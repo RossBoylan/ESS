@@ -548,7 +548,9 @@ For internal use. Used in `ess-display-help-on-object',
     (if help-win
         (progn
           (select-window help-win)
-          (switch-to-buffer buff nil 'force))
+          ;(switch-to-buffer buff nil 'force))
+          ; 'force is not available in emacs 24 RB
+          (switch-to-buffer buff nil))
       (if ess-help-pop-to-buffer
           (pop-to-buffer buff)
         (ess-display-temp-buffer buff)))))

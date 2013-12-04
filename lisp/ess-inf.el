@@ -220,7 +220,7 @@ Alternatively, it can appear in its own frame if
       (if startdir (setq default-directory startdir))
 
       ;; the following was part of ess-multi;
-      
+
       (let* ((ess-directory (or startdir
                                 ess-directory))
              (infargs (or ess-start-args
@@ -230,11 +230,11 @@ Alternatively, it can appear in its own frame if
              (proc (get-process procname)))
         (if inferior-ess-own-frame
             (setq special-display-regexps '(".")))
-        ;; If ESS process NAME is running, switch to it 
+        ;; If ESS process NAME is running, switch to it
         (if (and proc (comint-check-proc (process-buffer proc)))
             ;; fixme: when does this happen?
             (pop-to-buffer (process-buffer proc))
-          
+
           ;; Otherwise, crank up a new process
           (let* ((symbol-string
                   (concat "inferior-" inferior-ess-program "-args"))
@@ -304,7 +304,7 @@ Alternatively, it can appear in its own frame if
             ;; set accumulation buffer name (buffer to cache output for faster display)
             (process-put (get-process procname) 'accum-buffer-name
                          (format " *%s:accum*" procname))
-            
+
 
             ;; don't font-lock strings over process prompt
             (set (make-local-variable 'syntax-begin-function)
@@ -322,7 +322,7 @@ Alternatively, it can appear in its own frame if
 
           (with-current-buffer buf
             (rename-buffer buf-name-str t))
-          
+
           (if (and inferior-ess-same-window (not inferior-ess-own-frame))
               (switch-to-buffer buf)
             (pop-to-buffer buf)))))))
@@ -520,11 +520,16 @@ This marks the process with a message, at a particular time point."
                (goto-char (point-max))
                (insert "\^L\n")))    ; page boundaries = Interactive sessions
            (let ((process-environment
-                  ;; fixme: tramp environment variables?
                   (nconc
                    (list "STATATERM=emacs"
                          (format "PAGER=%s" inferior-ess-pager))
-                   process-environment)))
+                   process-environment))
+                 (tramp-remote-process-environment
+                  (nconc ;; it contains a pager already, so append
+                   (when (boundp 'tramp-remote-process-environment)
+                     (copy-sequence tramp-remote-process-environment))
+                   (list "STATATERM=emacs"
+                         (format "PAGER=%s" inferior-ess-pager)))))
              (ess-write-to-dribble-buffer "Making Process...")
              (ess-write-to-dribble-buffer
               (format "Buf %s, :Proc %s, :Prog %s\n :Args= %s\nStart File=%s\n"
@@ -565,10 +570,7 @@ This marks the process with a message, at a particular time point."
   (let* ((def-dir (file-name-as-directory default))
          (the-dir (expand-file-name
                    (file-name-as-directory
-                    (if (fboundp 'read-directory-name)
-                        ;; use XEmacs' read-directory-name if exists.
-                        (read-directory-name prompt def-dir def-dir t nil)
-                      (read-file-name prompt def-dir def-dir t nil))))))
+                    (read-directory-name prompt def-dir def-dir t nil)))))
     (if (file-directory-p the-dir) nil
       (error "%s is not a valid directory" the-dir))
     the-dir))
@@ -2051,61 +2053,31 @@ for `ess-eval-region'."
   (if (or ess-developer
           (ess-get-process-variable  'ess-developer))
       (ess-developer-source-current-file filename)
-    (if (fboundp (ess-process-get 'source-file-function))
-        (funcall (ess-process-get 'source-file-function))
-
+    (let ((filename (if (and (fboundp 'tramp-tramp-file-p)
+                             (tramp-tramp-file-p filename))
+                        (tramp-file-name-localname (tramp-dissect-file-name filename))
+                      filename)))
       (if ess-microsoft-p
           (setq filename (ess-replace-in-string filename "[\\]" "/")))
-      (let ((source-buffer (get-file-buffer filename)))
-        (if (ess-check-source filename)
-            (error "Buffer %s has not been saved" (buffer-name source-buffer)))
-        ;; else
-        (if (ess-ddeclient-p)
-            (ess-load-file-ddeclient filename)
+      (if (fboundp (ess-process-get 'source-file-function))
+         (funcall (ess-process-get 'source-file-function) filename)
+       (let ((source-buffer (get-file-buffer filename)))
+         (if (ess-check-source filename)
+             (error "Buffer %s has not been saved" (buffer-name source-buffer)))
+         ;; else
+         (if (ess-ddeclient-p)
+             (ess-load-file-ddeclient filename)
 
-          ;; else: "normal", non-DDE behavior:
-
-          ;; Find the process to load into
-          (if source-buffer
-              (with-current-buffer source-buffer
-                (ess-force-buffer-current "Process to load into: ")
-                (ess-check-modifications)))
-          (let ((errbuffer (ess-create-temp-buffer ess-error-buffer-name))
-                (filename (if (and (fboundp 'tramp-tramp-file-p)
-                                   (tramp-tramp-file-p filename))
-                              (tramp-file-name-localname (tramp-dissect-file-name filename))
-                            filename))
-                error-occurred nomessage)
-            (ess-eval-linewise (format ess-load-command filename))
-            ;; (with-current-buffer errbuffer
-            ;;   (goto-char (point-max))
-            ;;   (setq error-occurred (re-search-backward ess-dump-error-re nil t))
-            ;;   (setq nomessage (= (buffer-size) 0)))
-            ;; (if error-occurred
-            ;;     (message "Errors: Use %s to find error."
-            ;;              (substitute-command-keys
-            ;;               "\\<inferior-ess-mode-map>\\[ess-parse-errors]"))
-            ;;   ;; Load did not cause an error
-            ;;   (if nomessage (message "Load successful.")
-            ;;     ;; There was a warning message from S
-            ;;     (ess-display-temp-buffer errbuffer))
-            ;;   ;; Consider deleting the file
-            ;;   (let ((skdf (if source-buffer
-            ;;                   (with-current-buffer source-buffer
-            ;;                     ess-keep-dump-files)
-            ;;                 ess-keep-dump-files))) ;; global value
-            ;;     (cond
-            ;;      ((null skdf)
-            ;;       (delete-file filename))
-            ;;      ((memq skdf '(check ask))
-            ;;       (let ((doit (y-or-n-p (format "Delete %s " filename))))
-            ;;         (if doit (delete-file filename))
-            ;;         (and source-buffer
-            ;;              (local-variable-p 'ess-keep-dump-files source-buffer)
-            ;;              (with-current-buffer source-buffer
-            ;;                (setq ess-keep-dump-files doit)))))))
-            ;;   (ess-switch-to-ESS t))
-            ))))))
+           ;; else: "normal", non-DDE behavior:
+           ;; Find the process to load into
+           (if source-buffer
+               (with-current-buffer source-buffer
+                 (ess-force-buffer-current "Process to load into: ")
+                 (ess-check-modifications)))
+           (let ((errbuffer (ess-create-temp-buffer ess-error-buffer-name))
+                 error-occurred nomessage)
+             (ess-eval-linewise (format ess-load-command filename))
+             )))))))
 
 ;; C-c C-l  *used to* eval code:
 (defun ess-msg-and-comint-dynamic-list-input-ring ()
@@ -2189,22 +2161,22 @@ for `ess-eval-region'."
     "------"
     ("Utils"
      ;; need a toggle switch for above, AJR.
-     ["Attach directory"       ess-execute-attach            t]
-     ["Display object list"    ess-execute-objects           t]
-     ["Display search list"    ess-execute-search            t]
-     ["Edit S Object"    ess-dump-object-into-edit-buffer   t]
-     ["Enter S command"        ess-execute                   t]
-     ["Jump to Error"  ess-parse-errors                      t]
-     ["Load source file" ess-load-file                      t]
-     ["Resynch S completions"  ess-resynch                   t]
+     ["Attach directory"        ess-execute-attach      t]
+     ["Display object list"     ess-execute-objects	t]
+     ["Display search list"     ess-execute-search	t]
+     ["Edit S Object"	ess-dump-object-into-edit-buffer t]
+     ["Enter S command"         ess-execute             t]
+     ["Jump to Error"           ess-parse-errors        t]
+     ["Load source file"  	ess-load-file           t]
+     ["Resynch S completions"	ess-resynch		t]
      )
     "------"
-    ("start-dev" :visible nil)
+    ("start-dev" :visible nil); <-- ??
     ("end-dev" :visible nil)
     "------"
     ("Font Lock"
      :active inferior-ess-font-lock-keywords
-     :filter ess-generate-font-lock-submenu)
+     :filter ess--generate-font-lock-submenu)
     "------"
     ["Describe"         describe-mode                       t]
     ["Send bug report"  ess-submit-bug-report               t]
@@ -2227,6 +2199,7 @@ for `ess-eval-region'."
     (set-keymap-parent map minibuffer-local-map)
 
     (define-key map "\t" 'ess-complete-object-name)
+    (define-key map "\C-\M-i" 'ess-complete-object-name) ;; doesn't work:(
     (define-key map "\C-c\C-s" 'ess-execute-search)
     (define-key map "\C-c\C-x" 'ess-execute-objects)
     map)
@@ -2705,9 +2678,14 @@ buffer, name it *BUFF*.  This buffer is erased before use.  Optional
 fourth arg MESSAGE is text to print at the top of the buffer (defaults
 to the command if BUFF is not given.)"
   (interactive (list
-                (read-from-minibuffer "Execute> "
-                                      nil
-                                      ess-mode-minibuffer-map)
+                ;; simpler way to set proc name in mb?
+                (let ((enable-recursive-minibuffers t)
+                      (proc-name (progn (ess-force-buffer-current)
+                                        ess-local-process-name)))
+                  (with-current-buffer (get-buffer " *Minibuf-1*") ;; fixme: hardcoded name
+                    (setq ess-local-process-name proc-name))
+                  (read-from-minibuffer "Execute> " nil
+                                        ess-mode-minibuffer-map))
                 current-prefix-arg))
   (ess-make-buffer-current)
   (let ((the-command (concat command "\n"))
@@ -3279,10 +3257,16 @@ list."
 subprocess and Emacs buffer `default-directory'."
   (interactive "DChange working directory to: ")
   (if ess-setwd-command
-      (when (and (file-exists-p path)
-                 (ess-command (format ess-setwd-command path))
-                 ;; use file-name-as-directory to ensure it has trailing /
-                 (setq default-directory (file-name-as-directory path))))
+      (let* ((remote (file-remote-p path))
+             (path (if remote
+                       (tramp-sh-handle-expand-file-name path)
+                     path))
+             (lpath (if remote
+                        (with-parsed-tramp-file-name path v v-localname)
+                      path)))
+        (ess-eval-linewise (format ess-setwd-command lpath))
+        ;; use file-name-as-directory to ensure it has trailing /
+        (setq default-directory (file-name-as-directory path)))
     (unless no-error
       (error "Not implemented for dialect %s" ess-dialect))))
 

@@ -21,9 +21,9 @@
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
-;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+;; A copy of the GNU General Public License is available at
+;; http://www.r-project.org/Licenses/
+
 
 ;;; Commentary:
 
@@ -187,13 +187,14 @@ for ESS, such as icons.")
 
 ;;(1.2) If ess.info is not found, then ess-lisp-directory/../doc/info is added
 ;; resurrecting Stephen's version with a bug-fix & xemacs compatibility
+(if (fboundp 'locate-file) (progn
 (unless (locate-file "ess.info"
                      (if (featurep 'xemacs)
                          Info-directory-list
                        Info-default-directory-list))
   (add-to-list (if (featurep 'xemacs)
                    'Info-directory-list 'Info-default-directory-list)
-               (expand-file-name "../doc/info/" ess-lisp-directory)))
+               (expand-file-name "../doc/info/" ess-lisp-directory)))))
 
 
 ;; ALWAYS:

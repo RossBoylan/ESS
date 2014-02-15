@@ -23,9 +23,9 @@
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
-;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+;; A copy of the GNU General Public License is available at
+;; http://www.r-project.org/Licenses/
+
 
 ;;; Commentary:
 
@@ -127,6 +127,7 @@ A .lst file is a SAS listing file when:
   (when ess-automatic-sas-log-or-lst-mode
     (let* ((bfn (buffer-file-name))
            (log (and bfn
+                     (string-match-p "\\.lst$" bfn)
                      (replace-regexp-in-string "\\.lst$" ".log" bfn))))
       (and log
            (file-exists-p log)
@@ -1542,9 +1543,8 @@ page ;
 ;;;    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;;;    GNU General Public License for more details.
 ;;;
-;;;    You should have received a copy of the GNU General Public License
-;;;    along with this program; if not, write to the Free Software
-;;;    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+;;; A copy of the GNU General Public License is available at
+;;; http://www.r-project.org/Licenses/
 ;;;
 ;;;  Author:   Tom Cook
 ;;;            Dept. of Biostatistics

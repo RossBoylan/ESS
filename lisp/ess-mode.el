@@ -22,9 +22,8 @@
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
-;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+;; A copy of the GNU General Public License is available at
+;; http://www.r-project.org/Licenses/
 
 ;;; Commentary:
 
@@ -529,7 +528,7 @@ ess-mode."
      (repl "\\(<-\\)?")                 ; replacement (function)
      (Sym-0 "\\(\\sw\\|\\s_\\)")        ; symbol
      (Symb  (concat Sym-0 "+"))
-     (xSymb (concat "\\[?\\[?" Sym-0 "*")); symbol / [ / [[ / [symbol / [[symbol
+     (xSymb "[^ \t\n\"']+") ;; (concat "\\[?\\[?" Sym-0 "*")); symbol / [ / [[ / [symbol / [[symbol
      ;; FIXME: allow '%foo%' but only when quoted; don't allow [_0-9] at beg.
      (_or_  "\\)\\|\\(")                ; OR
      (space "\\(\\s-\\|\n\\)*")         ; white space
@@ -537,8 +536,7 @@ ess-mode."
      (part-1 (concat
               "\\(" ;;--------outer Either-------
               "\\(\\("          ; EITHER
-              ;; Q xSymb repl Sym-0 "*" Q  ; quote ([) (replacement) symbol quote
-              Q "[^ \t\n\"']+" Q ;; any function name between quotes
+              Q xSymb Q         ; any function name between quotes
               _or_
               "\\(^\\|[ ]\\)" Symb      ; (beginning of name) + Symb
               "\\)\\)"))        ; END EITHER OR
@@ -561,6 +559,7 @@ ess-mode."
               space "function\\s-*(" ; whitespace, function keyword, parenthesis
               ))
      )
+
   (defvar ess-R-function-pattern
     (concat part-1
             "\\s-*\\(<-\\|=\\)" ; whitespace, assign
